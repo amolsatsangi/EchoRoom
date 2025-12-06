@@ -1,7 +1,7 @@
 #include<iostream>
 #include<memory>
-#ifndef CHATROOM_HPP
-#define CHATROOM_HPP
+#ifndef MESSAGE_HPP
+#define MESSAGE_HPP
 #include <cstring>
 class Message{
     public:
@@ -11,6 +11,9 @@ class Message{
             bodyLength_ = message.size()>maxBytes?maxBytes:message.size();
             encodeHeader();
             memcpy(data+header,message.c_str(),bodyLength_);
+        }
+        size_t getBodyLength(){
+            return bodyLength_;
         }
         void encodeHeader(){
             char new_header[header+1] = "";
