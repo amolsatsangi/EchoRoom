@@ -10,16 +10,11 @@ void Room:: leave(Participantptr participant){
 }
 
 void Room::deliver(Participantptr participantPtr, Message &msg){
-    msgQueue.push_back(msg);
-    while(!msgQueue.empty()){
-        Message message = msgQueue.front();
-        msgQueue.pop_front();
-        for(auto _participant : participants){
-            if(_participant!=participantPtr){
-                _participant->write(message);
-            }
+    for(auto _participant : participants){
+        if(_participant!=participantPtr){
+            _participant->write(msg);
         }
-    }
+}
 }
 
 
