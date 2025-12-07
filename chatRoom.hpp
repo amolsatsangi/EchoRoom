@@ -31,7 +31,6 @@ class Room{
         void deliver(Participantptr participantPtr, Message &msg);
         
     private:
-        std::deque<Message> msgQueue;
         enum{MaxParticipant = 100};
         std::set<Participantptr> participants;
 };
