@@ -85,14 +85,13 @@ void Session::async_write(std::string mesgBody, size_t msgLen){
 }
 
 
-void accept_connection(boost::asio::io_context &io, char * port, tcp::acceptor &acceptor, Room &room, const tcp::endpoint &endpoint){
-    tcp::socket socket(io);
-    acceptor.async_accept([&](boost::system::error_code ec, tcp::socket socket){
+void accept_connection( tcp::acceptor &acceptor, Room &room){
+    acceptor.async_accept([&room, &acceptor](boost::system::error_code ec, tcp::socket socket){
         if(!ec){
             std::shared_ptr<Session> session = std::make_shared<Session>(std::move(socket),room);
             session->start();
         }
-        accept_connection(io,port,acceptor,room,endpoint);
+        accept_connection(acceptor,room);
     });
 }
 
@@ -106,7 +105,7 @@ int main(int argc, char * argv[]){
     boost::asio::io_context io_context;
     tcp::endpoint endpoint(tcp::v4(), atoi(argv[1]));
     tcp::acceptor acceptor (io_context, endpoint);
-    accept_connection(io_context,argv[1],acceptor,room,endpoint);
+    accept_connection(acceptor,room);
     io_context.run();
     }
     catch(const std::exception& e) {
