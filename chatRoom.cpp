@@ -73,7 +73,7 @@ void Session::async_read(){
 }
 Session::Session(tcp::socket s, Room& r): clientSocket(std::move(s)), room(r){};
 void Session::async_write(std::string mesgBody, size_t msgLen){
-    auto write_handler = [&](boost::system::error_code ec, std::size_t ){
+    auto write_handler = [&](boost::system::error_code ec, std::size_t bytes_transferred){
         if(!ec){
             std::cout<<"Data is writing to the socket"<<std::endl;
         }
