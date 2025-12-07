@@ -16,7 +16,7 @@ using boost::asio::ip::tcp;
 
 class Participant{
     public:
-        virtual void deliever(Message &msg) = 0;
+        virtual void deliver(Message &msg) = 0;
         virtual void write(Message &msg) = 0;
         virtual ~Participant() = default;
 };
@@ -28,7 +28,7 @@ class Room{
     public:
         void join(Participantptr participant);
         void leave(Participantptr participant);
-        void deliever(Participantptr participantPtr, Message &msg);
+        void deliver(Participantptr participantPtr, Message &msg);
         
     private:
         std::deque<Message> msgQueue;
@@ -41,9 +41,9 @@ class Session: public Participant, public std::enable_shared_from_this<Session>{
         Session(tcp::socket s, Room &room);
         void start();
         void write(Message &msg);
-        void deliever(Message &msg);
+        void deliver(Message &msg);
         void async_read();
-        void async_wite(std::string mesgBody, size_t bodyLength);
+        void async_write(std::string mesgBody, size_t bodyLength);
     private:
         tcp::socket clientSocket;
         boost::asio::streambuf buffer;
