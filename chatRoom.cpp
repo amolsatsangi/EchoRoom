@@ -39,33 +39,44 @@ void Session:: deliver(Message &msg){
 }
 void Session:: start(){
     room.join(shared_from_this());
-    async_read();
+    async_read_header();
 }
 using boost::asio::ip::address_v4;
-void Session::async_read(){
+void Session::async_read_header() {
     auto self(shared_from_this());
-    boost::asio::async_read_until(clientSocket, buffer,"\n", [this,self](boost::system::error_code ec, std::size_t bytes_transferred){
-        if(!ec){
-            std::string data(boost::asio::buffers_begin(buffer.data()),boost::asio::buffers_begin(buffer.data())+bytes_transferred);
 
-            buffer.consume(bytes_transferred);
-            std::cout<<"Recieved: "<<data<<std::endl;
-            Message message(data);
-            deliver(message);
-            async_read();
-        }
-        else{
-            room.leave(shared_from_this());
-            if(ec==boost::asio::error::eof){
-                std::cout<<"Connection closed by peer"<<std::endl;
-            }
-            else{
-                std::cout<<"Read error: "<<ec.message()<<std::endl;
+    boost::asio::async_read(
+        clientSocket,
+        boost::asio::buffer(readMsg.mutableData(), Message::header_size),
+        [this, self](boost::system::error_code ec, std::size_t) {
+            if (!ec && readMsg.decodeHeader()) {
+                async_read_body();
+            } else {
+                room.leave(self);
             }
         }
-
-    });
+    );
 }
+void Session::async_read_body() {
+    auto self(shared_from_this());
+
+    boost::asio::async_read(
+        clientSocket,
+        boost::asio::buffer(
+            readMsg.mutableData() + Message::header_size,
+            readMsg.getBodyLength()
+        ),
+        [this, self](boost::system::error_code ec, std::size_t) {
+            if (!ec) {
+                deliver(readMsg);
+                async_read_header();  // loop
+            } else {
+                room.leave(self);
+            }
+        }
+    );
+}
+
 Session::Session(tcp::socket s, Room& r): clientSocket(std::move(s)), room(r){};
 
 void Session::async_write(std::string mesgBody, size_t msgLen){

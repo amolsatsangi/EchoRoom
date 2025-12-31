@@ -1,9 +1,6 @@
-#include<iostream>
 #include "message.hpp"
 #include<set>
 #include<memory>
-#include<sys/socket.h>
-#include<unistd.h>
 #include<boost/asio.hpp>
 #include<deque>
 
@@ -41,7 +38,8 @@ class Session: public Participant, public std::enable_shared_from_this<Session>{
         void start();
         void write(Message &msg);
         void deliver(Message &msg);
-        void async_read();
+        void async_read_header();
+        void async_read_body();
         void async_write(std::string mesgBody, size_t bodyLength);
     private:
         tcp::socket clientSocket;
@@ -49,5 +47,6 @@ class Session: public Participant, public std::enable_shared_from_this<Session>{
         Room &room;
         std::deque<Message> messageQueue;
         bool writeInProgress = false;
+        Message readMsg;
 };
 #endif

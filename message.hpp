@@ -8,9 +8,10 @@
 
 class Message{
     public:
+        static constexpr std::size_t header_size = 4;
+        static constexpr std::size_t max_body_size = 512;
         Message() : bodyLength_{0}{
         }
-        
         explicit Message(std::string message){
             bodyLength_ = message.size()>max_body_size?max_body_size:message.size();
             encodeHeader();
@@ -45,8 +46,6 @@ class Message{
         }
 
     private:
-        static constexpr std::size_t header_size = 4;
-        static constexpr std::size_t max_body_size = 512;
         std::array<char, header_size + max_body_size> data_{};
         size_t bodyLength_;
 
