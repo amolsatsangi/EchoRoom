@@ -24,14 +24,7 @@ void Session::write(Message &msg){
         return;
     writeInProgress = true;
     Message& front = messageQueue.front();
-    bool header_decoder_flag  = front.decodeHeader();
-    if(!header_decoder_flag ){
-        std::cout << "Message length exceeds max\n";
-        messageQueue.pop_front();
-        writeInProgress = false;
-        return;
-    }
-    async_write(front.getBody(), front.getBodyLength());
+    async_write(front);
 }
 
 void Session:: deliver(Message &msg){
@@ -79,22 +72,21 @@ void Session::async_read_body() {
 
 Session::Session(tcp::socket s, Room& r): clientSocket(std::move(s)), room(r){};
 
-void Session::async_write(std::string mesgBody, size_t msgLen){
+void Session::async_write(Message& msg) {
     auto self(shared_from_this());
     boost::asio::async_write(
         clientSocket,
-        boost::asio::buffer(mesgBody, msgLen),
-        [this, self, mesgBody](boost::system::error_code ec, std::size_t){
-            if(!ec){
+        boost::asio::buffer(msg.mutableData(),Message::header_size + msg.getBodyLength()),
+        [this, self](boost::system::error_code ec, std::size_t) {
+            if (!ec) {
                 messageQueue.pop_front();
-                if(!messageQueue.empty()){
-                    Message& next = messageQueue.front();
-                    async_write(next.getBody(), next.getBodyLength());
+                if (!messageQueue.empty()) {
+                    async_write(messageQueue.front());
                 } else {
                     writeInProgress = false;
                 }
             } else {
-                room.leave(shared_from_this());
+                room.leave(self);
             }
         }
     );
