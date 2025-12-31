@@ -1,87 +1,70 @@
-# 🗨️ ChatRoom — Asynchronous C++ Chat Application (Boost.Asio)
+# EchoRoom
 
-A minimal asynchronous **TCP chat server and client** built using **C++17** and **Boost.Asio**.  
-Supports multiple clients, message broadcasting, and a lightweight message protocol.
-
----
-
-## 🚀 Features
-
-- Multi-client chat server  
-- Fully asynchronous I/O (`async_read_until`, `async_write`)  
-- Custom header+body message format  
-- Clean class architecture (Room, Session, Participant)  
-- Simple threaded client for interactive messaging  
+A lightweight multi-client chat application in C++ using Boost.Asio. Demonstrates framed binary protocol, asynchronous server design, and clean CLI interface.
 
 ---
 
-## 🧠 Architecture Overview
+## Features
 
-### 🟦 Participant (Interface)
-Defines functions every chat participant must support:
-```cpp
-virtual void deliver(Message&) = 0;
-virtual void write(Message&) = 0;
+- Multi-client TCP chat with length-prefixed message protocol
+- Asynchronous server with safe write ordering
+- Simple blocking client with command support
+- Graceful disconnect handling
+
+---
+
+## Message Protocol
+
+Fixed 4-byte header + variable body (max 512 bytes):
 ```
-🟧 Room
-
-Manages all connected clients:
-
-join() / leave()
-
-Broadcasts messages from one session to others
-
-🟩 Session
-
-Represents a single connected client:
-
-Starts reading with async_read()
-
-Sends incoming messages to the Room
-
-Sends outgoing messages back to client with async_write()
-
-Uses shared_from_this() for safe async lifetime
-
-✉️ Message
-
-Simple protocol:
++----------+-------------------+
+| Header | Body |
+| (4 bytes)| (N bytes) |
++----------+-------------------+
 ```
-[4-byte header][body]
-```
-Header stores the body length (ASCII). Max body size = 512 bytes.
 
-📦 Build Instructions
-Install Boost (Ubuntu / WSL)
+**Example:** `"0005Hello"` → Header: `0005`, Body: `Hello`
+
+---
+
+## Architecture
 ```
-sudo apt update
-sudo apt install libboost-all-dev
+Clients (CLI)
+|
+| TCP (framed messages)
+|
+Server (Boost.Asio)
 ```
-Build Server
-```
+
+**Server** (Boost.Asio)
+- Accepts multiple connections
+- Reads/broadcasts framed messages
+- Ensures write safety via per-client queue + `writeInProgress` flag
+
+**Client** (CLI)
+- Reader thread: receives messages
+- Main thread: sends input
+- Commands: `/exit`, `/help` (local only)
+
+---
+
+## Building
+
+**Requirements:** C++17, Boost.Asio, pthread
+```bash
+# Server
 g++ -std=c++17 chatRoom.cpp -o server -lboost_system -pthread
-```
-Build Client
-```
+
+# Client
 g++ -std=c++17 client.cpp -o client -lboost_system -pthread
 ```
-▶️ Running
-Start Server
+Run:
 ```
-./server 8080
+./server 9099
 ```
-Start Client(s)
 ```
-./client 8080
-```
+./client 9099 # Launch multiple instances
+```  
 
-Open multiple terminals for multiple clients.
-
-🔄 Message Flow
-```
-Client → Session::async_read()
-       → Session::deliver()
-       → Room::deliver()
-       → All other Sessions::write()
-       → async_write() → Clients
-```
+Design Focus: Correctness and clarity over features.
+Protocol violations (invalid headers or oversized messages) result in immediate connection termination to maintain stream integrity.
