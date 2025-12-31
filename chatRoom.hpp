@@ -40,7 +40,7 @@ class Session: public Participant, public std::enable_shared_from_this<Session>{
         void deliver(Message &msg);
         void async_read_header();
         void async_read_body();
-        void async_write(std::string mesgBody, size_t bodyLength);
+        void async_write(Message& msgBody);
     private:
         tcp::socket clientSocket;
         boost::asio::streambuf buffer;
