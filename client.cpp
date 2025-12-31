@@ -5,9 +5,13 @@
 
 using boost::asio::ip::tcp;
 
+void print_prompt() {
+    std::cout << "> " << std::flush;
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Usage: client <port>\n";
+        std::cerr << "[system] Usage: client <port>\n";
         return 1;
     }
 
@@ -37,7 +41,7 @@ int main(int argc, char* argv[]) {
                     );
 
                     if (!msg.decodeHeader()) {
-                        std::cerr << "Invalid message header\n";
+                        std::cerr << "\r[system] Invalid message header\n";
                         break;
                     }
 
@@ -50,18 +54,35 @@ int main(int argc, char* argv[]) {
                         )
                     );
 
-                    std::cout << "Server: " << msg.getBody() << std::endl;
+                    std::cout << "\r[chat] " << msg.getBody() << "\n";
+                    print_prompt();
+
                 }
             } catch (...) {
-                std::cout << "Disconnected from server\n";
+                std::cout << "\r[system] Disconnected from server\n";
             }
         });
 
         // ---------- Writer loop (framed write) ----------
         while (true) {
             std::string input;
-            std::cout << "Enter message: ";
+            print_prompt();
             std::getline(std::cin, input);
+            if (input == "/exit") {
+                std::cout << "[system] Exiting chat...\n";
+                socket.close();
+                break;
+            }
+            if (input == "/help") {
+                std::cout <<
+                    "\nCommands:\n"
+                    "  /exit   Quit the chat\n"
+                    "  /help   Show this help\n\n";
+                continue;
+            }
+
+            if (input.empty())
+                continue;
 
             Message msg(input);
 
@@ -74,10 +95,10 @@ int main(int argc, char* argv[]) {
             );
         }
 
-        reader.join();
+        reader.detach();
     }
     catch (const std::exception& e) {
-        std::cerr << "Client error: " << e.what() << std::endl;
+        std::cerr << "\r[system] Client error: " << e.what() << std::endl;
     }
 
     return 0;
