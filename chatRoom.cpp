@@ -20,18 +20,18 @@ void Room::deliver(Participantptr participantPtr, Message &msg){
 
 void Session::write(Message &msg){
     messageQueue.push_back(msg);
-    while(!messageQueue.empty()){
-        Message msg = messageQueue.front();
+    if(writeInProgress)
+        return;
+    writeInProgress = true;
+    Message& front = messageQueue.front();
+    bool header_decoder_flag  = front.decodeHeader();
+    if(!header_decoder_flag ){
+        std::cout << "Message length exceeds max\n";
         messageQueue.pop_front();
-        bool header_decoder_flag = msg.decodeHeader();
-        if(header_decoder_flag){
-            std::string body = msg.getBody();
-            async_write(body,msg.getBodyLength());
-        }
-        else{
-            std::cout<<"Message length exceeds the max length"<<std::endl;
-        }
+        writeInProgress = false;
+        return;
     }
+    async_write(front.getBody(), front.getBodyLength());
 }
 
 void Session:: deliver(Message &msg){
@@ -67,17 +67,28 @@ void Session::async_read(){
     });
 }
 Session::Session(tcp::socket s, Room& r): clientSocket(std::move(s)), room(r){};
+
 void Session::async_write(std::string mesgBody, size_t msgLen){
-    auto write_handler = [&](boost::system::error_code ec, std::size_t bytes_transferred){
-        if(!ec){
-            std::cout<<"Data is writing to the socket"<<std::endl;
+    auto self(shared_from_this());
+    boost::asio::async_write(
+        clientSocket,
+        boost::asio::buffer(mesgBody, msgLen),
+        [this, self, mesgBody](boost::system::error_code ec, std::size_t){
+            if(!ec){
+                messageQueue.pop_front();
+                if(!messageQueue.empty()){
+                    Message& next = messageQueue.front();
+                    async_write(next.getBody(), next.getBodyLength());
+                } else {
+                    writeInProgress = false;
+                }
+            } else {
+                room.leave(shared_from_this());
+            }
         }
-        else{
-            std::cerr<<"Write error: "<<ec.message()<<std::endl;
-        }
-    };
-    boost::asio::async_write(clientSocket,boost::asio::buffer(mesgBody,msgLen),write_handler);
+    );
 }
+
 
 
 void accept_connection( tcp::acceptor &acceptor, Room &room){

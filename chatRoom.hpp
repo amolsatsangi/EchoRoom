@@ -48,5 +48,6 @@ class Session: public Participant, public std::enable_shared_from_this<Session>{
         boost::asio::streambuf buffer;
         Room &room;
         std::deque<Message> messageQueue;
+        bool writeInProgress = false;
 };
 #endif
