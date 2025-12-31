@@ -1,45 +1,84 @@
-#include<iostream>
+#include <iostream>
+#include <thread>
 #include "message.hpp"
-#include<boost/asio.hpp>
+#include <boost/asio.hpp>
 
 using boost::asio::ip::tcp;
 
-void async_read(tcp::socket &socket){
-    auto buffer = std::make_shared<boost::asio::streambuf>();
-    boost::asio::async_read_until(socket, *buffer, "\n", [&socket, buffer](boost::system::error_code ec, std::size_t length){
-        if(!ec){
-            std::istream is(buffer.get());
-            std::string recived;
-            std::getline(is,recived);
-            std::cout<<"Server: "<<recived<<std::endl;
-            async_read(socket);
-        }
-    });
-}
-
-int main(int argc, char *argv[]){
-    if(argc<2){
-        std::cerr<<"Provide a port too as a second argument"<<std::endl;
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: client <port>\n";
         return 1;
     }
-    boost::asio::io_context io_context;
-    tcp::socket socket(io_context);
-    tcp::resolver resolver(io_context);
 
-    boost::asio::connect(socket,resolver.resolve("127.0.0.1",argv[1]));
-    async_read(socket);
-    std::thread t([&io_context, &socket](){
-        while(true){
-            std::string data;
-            std::cout<<"Enter message: ";
-            std::getline(std::cin,data);
-            data += '\n';
-            boost::asio::post(io_context,[&,data](){
-                boost::asio::write(socket,boost::asio::buffer(data));
-            });
+    try {
+        boost::asio::io_context io_context;
+        tcp::socket socket(io_context);
+        tcp::resolver resolver(io_context);
+
+        boost::asio::connect(
+            socket,
+            resolver.resolve("127.0.0.1", argv[1])
+        );
+
+        // ---------- Reader thread (framed read) ----------
+        std::thread reader([&]() {
+            try {
+                while (true) {
+                    Message msg;
+
+                    // Read header
+                    boost::asio::read(
+                        socket,
+                        boost::asio::buffer(
+                            msg.mutableData(),
+                            Message::header_size
+                        )
+                    );
+
+                    if (!msg.decodeHeader()) {
+                        std::cerr << "Invalid message header\n";
+                        break;
+                    }
+
+                    // Read body
+                    boost::asio::read(
+                        socket,
+                        boost::asio::buffer(
+                            msg.mutableData() + Message::header_size,
+                            msg.getBodyLength()
+                        )
+                    );
+
+                    std::cout << "Server: " << msg.getBody() << std::endl;
+                }
+            } catch (...) {
+                std::cout << "Disconnected from server\n";
+            }
+        });
+
+        // ---------- Writer loop (framed write) ----------
+        while (true) {
+            std::string input;
+            std::cout << "Enter message: ";
+            std::getline(std::cin, input);
+
+            Message msg(input);
+
+            boost::asio::write(
+                socket,
+                boost::asio::buffer(
+                    msg.mutableData(),
+                    Message::header_size + msg.getBodyLength()
+                )
+            );
         }
-    });
-    io_context.run();
-    t.join();
+
+        reader.join();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Client error: " << e.what() << std::endl;
+    }
+
     return 0;
 }
